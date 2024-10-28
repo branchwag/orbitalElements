@@ -47,7 +47,7 @@ const orbitalPlaneMaterial = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
 });
 const orbitalPlane = new THREE.Mesh(orbitalPlaneGeometry, orbitalPlaneMaterial);
-orbitalPlane.rotation.x = THREE.MathUtils.degToRad(23);
+orbitalPlane.rotation.x = THREE.MathUtils.degToRad(140);
 orbitalPlane.rotation.z = THREE.MathUtils.degToRad(45);
 scene.add(orbitalPlane);
 
