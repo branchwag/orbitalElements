@@ -10,7 +10,7 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 
-camera.position.z = 5;
+camera.position.z = 10;
 
 const earthGeo = new THREE.SphereGeometry(2, 32, 32);
 const earthMaterial = new THREE.MeshBasicMaterial({
@@ -32,7 +32,8 @@ function animate() {
 
   requestAnimationFrame(animate);
 
-  earth.rotation.y += earthRotationSpeed * deltaTime;
+  //earth.rotation.y += earthRotationSpeed * deltaTime;
+  earth.rotation.y += 0.001;
 
   renderer.render(scene, camera);
 }
