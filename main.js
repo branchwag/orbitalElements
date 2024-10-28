@@ -1,5 +1,6 @@
 import './style.css'
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -11,6 +12,12 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 camera.position.z = 10;
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.minDistance = 5;
+controls.maxDistance = 20;
 
 const earthGeo = new THREE.SphereGeometry(2, 32, 32);
 const earthMaterial = new THREE.MeshBasicMaterial({
@@ -43,6 +50,7 @@ function animate() {
 
   //earth.rotation.y += earthRotationSpeed * deltaTime;
   earth.rotation.y += 0.001;
+  controls.update();
 
   renderer.render(scene, camera);
 }
