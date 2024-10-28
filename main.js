@@ -36,7 +36,7 @@ const eplaneMaterial = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
 });
 const equatorialPlane = new THREE.Mesh(eplaneGeometry, eplaneMaterial);
-equatorialPlane.rotation.x = THREE.MathUtils.degToRad(110);
+equatorialPlane.rotation.x = THREE.MathUtils.degToRad(90);
 scene.add(equatorialPlane);
 
 const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
