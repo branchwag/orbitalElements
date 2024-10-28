@@ -39,6 +39,17 @@ const equatorialPlane = new THREE.Mesh(eplaneGeometry, eplaneMaterial);
 equatorialPlane.rotation.x = THREE.MathUtils.degToRad(90);
 scene.add(equatorialPlane);
 
+const orbitalPlaneGeometry = new THREE.PlaneGeometry(5, 5);
+const orbitalPlaneMaterial = new THREE.MeshBasicMaterial({
+  color: 0xF54242,
+  transparent: true,
+  opacity: 0.3,
+  side: THREE.DoubleSide,
+});
+const orbitalPlane = new THREE.Mesh(orbitalPlaneGeometry, orbitalPlaneMaterial);
+orbitalPlane.rotation.x = THREE.MathUtils.degToRad(23);
+scene.add(orbitalPlane);
+
 const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
 
 function animate() {
