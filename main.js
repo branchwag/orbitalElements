@@ -18,12 +18,21 @@ const earthMaterial = new THREE.MeshBasicMaterial({
   wireframe: true,
 });
 const earth = new THREE.Mesh(earthGeo, earthMaterial);
+earth.rotation.x = THREE.MathUtils.degToRad(23.5);
 scene.add(earth);
 
-const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
-const earthTilt = THREE.MathUtils.degToRad(23.5);
+const eplaneGeometry = new THREE.PlaneGeometry(6, 6);
+const eplaneMaterial = new THREE.MeshBasicMaterial({
+  color: 0x4287f5,
+  transparent: true,
+  opacity: 0.3,
+  side: THREE.DoubleSide,
+});
+const equatorialPlane = new THREE.Mesh(eplaneGeometry, eplaneMaterial);
+equatorialPlane.rotation.x = THREE.MathUtils.degToRad(110);
+scene.add(equatorialPlane);
 
-earth.rotation.x = earthTilt;
+const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
 
 function animate() {
   const currentTime = performance.now();
