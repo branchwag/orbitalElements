@@ -52,6 +52,33 @@ orbitalPlane.rotation.x = THREE.MathUtils.degToRad(160);
 orbitalPlane.rotation.z = THREE.MathUtils.degToRad(45);
 scene.add(orbitalPlane);
 
+const curve = new THREE.EllipseCurve(
+  0, 0, //center
+  3.5, 3.5, //xradius, yradius
+  0, 2 * Math.PI, //startAngle, endAngle
+  false, //clockwise
+  0 //rotation
+);
+
+const points = curve.getPoints(50);
+const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
+
+const orbitMaterial = new THREE.LineDashedMaterial({
+  color: 0xFFFFFF,
+  linewidth: 3,
+  scale: 1,
+  dashSize: 0.5,
+  gapSize: 0.3,
+});
+
+const orbitalPath = new THREE.Line(orbitGeometry, orbitMaterial);
+orbitalPath.computeLineDistances();
+
+orbitalPath.rotation.x = THREE.MathUtils.degToRad(160);
+orbitalPath.rotation.z = THREE.MathUtils.degToRad(45);
+
+scene.add(orbitalPath);
+
 const nodeGeometry = new THREE.SphereGeometry(0.1, 16, 16);
 const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
 
@@ -102,7 +129,7 @@ const createLabelSprite = (text, position) => {
 
   const sprite = new THREE.Sprite(spriteMaterial);
   sprite.position.copy(position);
-  sprite.scale.set(1, 0.25, 1); // Adjusted scale for better proportions
+  sprite.scale.set(1, 0.25, 1);
 
   return sprite;
 };
