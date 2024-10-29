@@ -66,35 +66,50 @@ scene.add(ascendingNode);
 function createTextTexture(text) {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
-  canvas.width = 256;
-  canvas.height = 64;
+  canvas.width = 512;
+  canvas.height = 128;
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
 
   context.fillStyle = 'white';
-  context.font = 'bold 16px Arial';
-  context.fillText(text, 0, 40);
+  context.font = 'bold 26px Arial';
+  context.textBaseline = 'middle';
+  context.textAlign = 'center';
+
+  context.shadowColor = 'rgba(0, 0, 0, 0.5)';
+  context.shadowBlur = 4;
+  context.shadowOffsetX = 2;
+  context.shadowOffsetY = 2;
+
+  context.fillText(text, canvas.width / 2, canvas.height / 2);
 
   const texture = new THREE.CanvasTexture(canvas);
+
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.format = THREE.RGBAFormat;
+
   return texture;
 }
 
-const descendingSpriteMaterial = new THREE.SpriteMaterial({
-  map: createTextTexture('Descending Node'),
-  sizeAttenuation: false
-});
+const createLabelSprite = (text, position) => {
+  const spriteMaterial = new THREE.SpriteMaterial({
+    map: createTextTexture(text),
+    sizeAttenuation: false,
+    transparent: true,
+    depthTest: false // Ensures text renders on top
+  });
 
-const ascendingSpriteMaterial = new THREE.SpriteMaterial({
-  map: createTextTexture('Ascending Node'),
-  sizeAttenuation: false
-});
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.position.copy(position);
+  sprite.scale.set(1, 0.25, 1); // Adjusted scale for better proportions
 
-const descendingText = new THREE.Sprite(descendingSpriteMaterial);
-descendingText.position.set(-3.5, 0.5, 0);
-descendingText.scale.set(0.5, 0.2, 0.3);
+  return sprite;
+};
+
+const descendingText = createLabelSprite('Descending Node', new THREE.Vector3(-3.5, 0.5, 0));
+const ascendingText = createLabelSprite('Ascending Node', new THREE.Vector3(4.5, 0.5, 0));
 scene.add(descendingText);
-
-const ascendingText = new THREE.Sprite(ascendingSpriteMaterial);
-ascendingText.position.set(4.5, 0.5, 0);
-ascendingText.scale.set(0.5, 0.2, 0.3);
 scene.add(ascendingText);
 
 const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
@@ -109,9 +124,15 @@ function animate() {
   //earth.rotation.y += earthRotationSpeed * deltaTime;
   earth.rotation.y += 0.001;
 
-  descendingText.quaternion.copy(camera.quaternion);
-  ascendingText.quaternion.copy(camera.quaternion);
+  const cameraPosition = camera.position.clone();
+  descendingText.position.y = 0.5;
+  ascendingText.position.y = 0.5;
 
+  descendingText.material.rotation = 0;
+  ascendingText.material.rotation = 0;
+
+  descendingText.lookAt(cameraPosition);
+  ascendingText.lookAt(cameraPosition);
 
   controls.update();
 
