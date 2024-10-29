@@ -129,7 +129,7 @@ const createLabelSprite = (text, position) => {
 
   const sprite = new THREE.Sprite(spriteMaterial);
   sprite.position.copy(position);
-  sprite.scale.set(1, 0.25, 1);
+  sprite.scale.set(0.60, 0.25, 1);
 
   return sprite;
 };
