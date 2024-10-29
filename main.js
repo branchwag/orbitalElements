@@ -79,6 +79,19 @@ orbitalPath.rotation.z = THREE.MathUtils.degToRad(45);
 
 scene.add(orbitalPath);
 
+const lineofNodesGeometry = new THREE.BufferGeometry().setFromPoints([
+  new THREE.Vector3(-3.5, 0, 0),
+  new THREE.Vector3(3.5, 0, 0)
+]);
+
+const lineOfNodesMaterial = new THREE.LineBasicMaterial({
+  color: 0xFFFF00,
+  linewidth: 1
+});
+
+const lineOfNodes = new THREE.Line(lineofNodesGeometry, lineOfNodesMaterial);
+scene.add(lineOfNodes);
+
 const nodeGeometry = new THREE.SphereGeometry(0.1, 16, 16);
 const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
 
@@ -136,8 +149,10 @@ const createLabelSprite = (text, position) => {
 
 const descendingText = createLabelSprite('Descending Node', new THREE.Vector3(-3.5, 0.5, 0));
 const ascendingText = createLabelSprite('Ascending Node', new THREE.Vector3(4.5, 0.5, 0));
+const lineOfNodesText = createLabelSprite('Line of Nodes', new THREE.Vector3(0, -0.5, 0));
 scene.add(descendingText);
 scene.add(ascendingText);
+scene.add(lineOfNodesText);
 
 const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
 
@@ -157,9 +172,11 @@ function animate() {
 
   descendingText.material.rotation = 0;
   ascendingText.material.rotation = 0;
+  lineOfNodesText.material.rotation = 0;
 
   descendingText.lookAt(cameraPosition);
   ascendingText.lookAt(cameraPosition);
+  lineOfNodesText.lookAt(cameraPosition);
 
   controls.update();
 
