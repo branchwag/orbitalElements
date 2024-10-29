@@ -12,6 +12,7 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 camera.position.z = 10;
+camera.position.y = 1;
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
