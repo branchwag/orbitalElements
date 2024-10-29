@@ -52,6 +52,51 @@ orbitalPlane.rotation.x = THREE.MathUtils.degToRad(160);
 orbitalPlane.rotation.z = THREE.MathUtils.degToRad(45);
 scene.add(orbitalPlane);
 
+const nodeGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
+
+const descendingNode = new THREE.Mesh(nodeGeometry, nodeMaterial);
+descendingNode.position.set(-3.5, 0, 0);
+scene.add(descendingNode);
+
+const ascendingNode = new THREE.Mesh(nodeGeometry, nodeMaterial);
+ascendingNode.position.set(3.5, 0, 0);
+scene.add(ascendingNode);
+
+function createTextTexture(text) {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  canvas.width = 256;
+  canvas.height = 64;
+
+  context.fillStyle = 'white';
+  context.font = 'bold 16px Arial';
+  context.fillText(text, 0, 40);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
+}
+
+const descendingSpriteMaterial = new THREE.SpriteMaterial({
+  map: createTextTexture('Descending Node'),
+  sizeAttenuation: false
+});
+
+const ascendingSpriteMaterial = new THREE.SpriteMaterial({
+  map: createTextTexture('Ascending Node'),
+  sizeAttenuation: false
+});
+
+const descendingText = new THREE.Sprite(descendingSpriteMaterial);
+descendingText.position.set(-3.5, 0.5, 0);
+descendingText.scale.set(0.5, 0.2, 0.3);
+scene.add(descendingText);
+
+const ascendingText = new THREE.Sprite(ascendingSpriteMaterial);
+ascendingText.position.set(4.5, 0.5, 0);
+ascendingText.scale.set(0.5, 0.2, 0.3);
+scene.add(ascendingText);
+
 const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
 
 function animate() {
@@ -63,6 +108,11 @@ function animate() {
 
   //earth.rotation.y += earthRotationSpeed * deltaTime;
   earth.rotation.y += 0.001;
+
+  descendingText.quaternion.copy(camera.quaternion);
+  ascendingText.quaternion.copy(camera.quaternion);
+
+
   controls.update();
 
   renderer.render(scene, camera);
