@@ -102,7 +102,7 @@ const eplaneMaterial = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
 });
 const equatorialPlane = new THREE.Mesh(eplaneGeometry, eplaneMaterial);
-equatorialPlane.rotation.x = THREE.MathUtils.degToRad(90);
+equatorialPlane.rotation.x = THREE.MathUtils.degToRad(115);
 scene.add(equatorialPlane);
 
 const orbitalPlaneGeometry = new THREE.PlaneGeometry(8, 8);
