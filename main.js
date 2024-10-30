@@ -29,6 +29,71 @@ const earth = new THREE.Mesh(earthGeo, earthMaterial);
 earth.rotation.x = THREE.MathUtils.degToRad(23.5);
 scene.add(earth);
 
+const axesGroup = new THREE.Group();
+axesGroup.rotation.x = THREE.MathUtils.degToRad(23.5);
+scene.add(axesGroup);
+
+const axisLength = 4;
+const axisWidth = 2;
+
+const zAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, axisLength, 8);
+const zAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x0000FF });
+const zAxis = new THREE.Mesh(zAxisGeometry, zAxisMaterial);
+zAxis.position.y = axisLength / 2;
+axesGroup.add(zAxis);
+
+const zArrowGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+const zArrow = new THREE.Mesh(zArrowGeometry, zAxisMaterial);
+zArrow.position.y = axisLength;
+axesGroup.add(zArrow);
+
+const xAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, axisLength, 8);
+const xAxisMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
+const xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial);
+xAxis.rotation.z = THREE.MathUtils.degToRad(-90);
+xAxis.position.x = axisLength / 2;
+axesGroup.add(xAxis);
+
+const xArrowGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+const xArrow = new THREE.Mesh(xArrowGeometry, xAxisMaterial);
+xArrow.rotation.z = THREE.MathUtils.degToRad(-90);
+xArrow.position.x = axisLength;
+axesGroup.add(xArrow);
+
+const yAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, axisLength, 8);
+const yAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
+const yAxis = new THREE.Mesh(yAxisGeometry, yAxisMaterial);
+yAxis.rotation.x = THREE.MathUtils.degToRad(90);
+yAxis.position.z = axisLength / 2;
+axesGroup.add(yAxis);
+
+const yArrowGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+const yArrow = new THREE.Mesh(yArrowGeometry, yAxisMaterial);
+yArrow.rotation.x = THREE.MathUtils.degToRad(90);
+yArrow.position.z = axisLength;
+axesGroup.add(yArrow);
+
+const createAxisLabel = (text, position) => {
+  const spriteMaterial = new THREE.SpriteMaterial({
+    map: createTextTexture(text),
+    sizeAttenuation: false,
+    transparent: true,
+    depthTest: false
+  });
+
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.position.copy(position);
+  sprite.scale.set(0.4, 0.2, 1);
+  return sprite;
+};
+
+const yLabel = createAxisLabel('Y', new THREE.Vector3(axisLength + 0.5, 0, 0));
+const xLabel = createAxisLabel('X', new THREE.Vector3(0, 0, axisLength + 0.5));
+const zLabel = createAxisLabel('Z', new THREE.Vector3(0, axisLength + 0.5, 0));
+axesGroup.add(xLabel);
+axesGroup.add(yLabel);
+axesGroup.add(zLabel);
+
 const eplaneGeometry = new THREE.PlaneGeometry(7, 7);
 const eplaneMaterial = new THREE.MeshBasicMaterial({
   color: 0x4287f5,
@@ -177,9 +242,11 @@ function animate() {
   descendingText.lookAt(cameraPosition);
   ascendingText.lookAt(cameraPosition);
   lineOfNodesText.lookAt(cameraPosition);
+  xLabel.lookAt(cameraPosition);
+  yLabel.lookAt(cameraPosition);
+  zLabel.lookAt(cameraPosition);
 
   controls.update();
-
   renderer.render(scene, camera);
 }
 
