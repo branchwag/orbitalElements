@@ -34,7 +34,7 @@ axesGroup.rotation.x = THREE.MathUtils.degToRad(23.5);
 scene.add(axesGroup);
 
 const axisLength = 4;
-const axisWidth = 2;
+//const axisWidth = 2;
 
 const zAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, axisLength, 8);
 const zAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x0000FF });
@@ -47,31 +47,31 @@ const zArrow = new THREE.Mesh(zArrowGeometry, zAxisMaterial);
 zArrow.position.y = axisLength;
 axesGroup.add(zArrow);
 
-const xAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, axisLength, 8);
-const xAxisMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
-const xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial);
-xAxis.rotation.z = THREE.MathUtils.degToRad(-90);
-xAxis.position.x = axisLength / 2;
-axesGroup.add(xAxis);
-
-const xArrowGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
-const xArrow = new THREE.Mesh(xArrowGeometry, xAxisMaterial);
-xArrow.rotation.z = THREE.MathUtils.degToRad(-90);
-xArrow.position.x = axisLength;
-axesGroup.add(xArrow);
-
 const yAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, axisLength, 8);
-const yAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
+const yAxisMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
 const yAxis = new THREE.Mesh(yAxisGeometry, yAxisMaterial);
-yAxis.rotation.x = THREE.MathUtils.degToRad(90);
-yAxis.position.z = axisLength / 2;
+yAxis.rotation.z = THREE.MathUtils.degToRad(-90);
+yAxis.position.x = axisLength / 2;
 axesGroup.add(yAxis);
 
 const yArrowGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
 const yArrow = new THREE.Mesh(yArrowGeometry, yAxisMaterial);
-yArrow.rotation.x = THREE.MathUtils.degToRad(90);
-yArrow.position.z = axisLength;
+yArrow.rotation.z = THREE.MathUtils.degToRad(-90);
+yArrow.position.x = axisLength;
 axesGroup.add(yArrow);
+
+const xAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, axisLength, 8);
+const xAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
+const xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial);
+xAxis.rotation.x = THREE.MathUtils.degToRad(90);
+xAxis.position.z = axisLength / 2;
+axesGroup.add(xAxis);
+
+const xArrowGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+const xArrow = new THREE.Mesh(xArrowGeometry, xAxisMaterial);
+xArrow.rotation.x = THREE.MathUtils.degToRad(90);
+xArrow.position.z = axisLength;
+axesGroup.add(xArrow);
 
 const createAxisLabel = (text, position) => {
   const spriteMaterial = new THREE.SpriteMaterial({
@@ -117,6 +117,7 @@ orbitalPlane.rotation.x = THREE.MathUtils.degToRad(160);
 orbitalPlane.rotation.z = THREE.MathUtils.degToRad(45);
 scene.add(orbitalPlane);
 
+//https://threejs.org/docs/index.html?q=arc#api/en/extras/curves/EllipseCurve
 const curve = new THREE.EllipseCurve(
   0, 0, //center
   3.5, 3.5, //xradius, yradius
@@ -124,10 +125,8 @@ const curve = new THREE.EllipseCurve(
   false, //clockwise
   0 //rotation
 );
-
 const points = curve.getPoints(50);
 const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
-
 const orbitMaterial = new THREE.LineDashedMaterial({
   color: 0xFFFFFF,
   linewidth: 3,
@@ -135,13 +134,10 @@ const orbitMaterial = new THREE.LineDashedMaterial({
   dashSize: 0.5,
   gapSize: 0.3,
 });
-
 const orbitalPath = new THREE.Line(orbitGeometry, orbitMaterial);
 orbitalPath.computeLineDistances();
-
 orbitalPath.rotation.x = THREE.MathUtils.degToRad(160);
 orbitalPath.rotation.z = THREE.MathUtils.degToRad(45);
-
 scene.add(orbitalPath);
 
 const lineofNodesGeometry = new THREE.BufferGeometry().setFromPoints([
@@ -156,6 +152,32 @@ const lineOfNodesMaterial = new THREE.LineBasicMaterial({
 
 const lineOfNodes = new THREE.Line(lineofNodesGeometry, lineOfNodesMaterial);
 scene.add(lineOfNodes);
+
+const startPoint = new THREE.Vector3(3.5, 0, 0);
+const endPoint = new THREE.Vector3(0, 0, axisLength);
+const controlPoint = new THREE.Vector3(
+  startPoint.x / 2,
+  0,
+  axisLength / 2,
+);
+
+const curvePoints = [];
+const segments = 32;
+for (let i = 0; i <= segments; i++) {
+  const t = i / segments;
+  // Quadratic Bezier curve calculations
+  const x = Math.pow(1 - t, 2) * startPoint.x + 2 * (1 - t) * t * controlPoint.x + Math.pow(t, 2) * endPoint.x;
+  const y = Math.pow(1 - t, 2) * startPoint.y + 2 * (1 - t) * t * controlPoint.y + Math.pow(t, 2) * endPoint.y;
+  const z = Math.pow(1 - t, 2) * startPoint.z + 2 * (1 - t) * t * controlPoint.z + Math.pow(t, 2) * endPoint.z;
+  curvePoints.push(new THREE.Vector3(x, y, z));
+}
+const raanGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+const raanMaterial = new THREE.LineBasicMaterial({
+  color: 0xFFA500,
+  linewidth: 2
+});
+const raanArc = new THREE.Line(raanGeometry, raanMaterial);
+scene.add(raanArc);
 
 const nodeGeometry = new THREE.SphereGeometry(0.1, 16, 16);
 const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
@@ -212,18 +234,27 @@ const createLabelSprite = (text, position) => {
   return sprite;
 };
 
+const raanLabelPos = new THREE.Vector3(
+  startPoint.x / 2,
+  0.5,
+  axisLength / 3
+);
+
+const raanText = createLabelSprite('RAAN', raanLabelPos);
+
 const descendingText = createLabelSprite('Descending Node', new THREE.Vector3(-3.5, 0.5, 0));
 const ascendingText = createLabelSprite('Ascending Node', new THREE.Vector3(4.5, 0.5, 0));
 const lineOfNodesText = createLabelSprite('Line of Nodes', new THREE.Vector3(0, -0.5, 0));
+scene.add(raanText);
 scene.add(descendingText);
 scene.add(ascendingText);
 scene.add(lineOfNodesText);
 
-const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
+//const earthRotationSpeed = (2 * Math.PI) / 86400; //radians per second for 24hr rotation
 
 function animate() {
   const currentTime = performance.now();
-  const deltaTime = (currentTime - lastTime) / 1000; //convert to seconds
+  //const deltaTime = (currentTime - lastTime) / 1000; //convert to seconds
   lastTime = currentTime;
 
   requestAnimationFrame(animate);
@@ -238,10 +269,12 @@ function animate() {
   descendingText.material.rotation = 0;
   ascendingText.material.rotation = 0;
   lineOfNodesText.material.rotation = 0;
+  raanText.material.rotation = 0;
 
   descendingText.lookAt(cameraPosition);
   ascendingText.lookAt(cameraPosition);
   lineOfNodesText.lookAt(cameraPosition);
+  raanText.lookAt(cameraPosition);
   xLabel.lookAt(cameraPosition);
   yLabel.lookAt(cameraPosition);
   zLabel.lookAt(cameraPosition);
