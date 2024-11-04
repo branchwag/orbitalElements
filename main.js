@@ -181,6 +181,7 @@ scene.add(raanArc);
 
 const nodeGeometry = new THREE.SphereGeometry(0.1, 16, 16);
 const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
+const perigeeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
 
 const descendingNode = new THREE.Mesh(nodeGeometry, nodeMaterial);
 descendingNode.position.set(-3.5, 0, 0);
@@ -189,6 +190,10 @@ scene.add(descendingNode);
 const ascendingNode = new THREE.Mesh(nodeGeometry, nodeMaterial);
 ascendingNode.position.set(3.5, 0, 0);
 scene.add(ascendingNode);
+
+const perigeePoint = new THREE.Mesh(nodeGeometry, perigeeMaterial);
+perigeePoint.position.set(2.75, 2, -0.75);
+scene.add(perigeePoint);
 
 function createTextTexture(text) {
   const canvas = document.createElement('canvas');
@@ -240,11 +245,13 @@ const raanLabelPos = new THREE.Vector3(
   (axisLength - 0.3) / 3
 );
 
+const perigeeText = createLabelSprite('Perigee', new THREE.Vector3(2.6, 2.6, -0.5));
 const raanText = createLabelSprite('RAAN', raanLabelPos);
 
 const descendingText = createLabelSprite('Descending Node', new THREE.Vector3(-3.5, 0.5, 0));
 const ascendingText = createLabelSprite('Ascending Node', new THREE.Vector3(4.5, 0.5, 0));
 const lineOfNodesText = createLabelSprite('Line of Nodes', new THREE.Vector3(0, -0.5, 0));
+scene.add(perigeeText);
 scene.add(raanText);
 scene.add(descendingText);
 scene.add(ascendingText);
@@ -275,6 +282,7 @@ function animate() {
   ascendingText.lookAt(cameraPosition);
   lineOfNodesText.lookAt(cameraPosition);
   raanText.lookAt(cameraPosition);
+  perigeeText.lookAt(cameraPosition);
   xLabel.lookAt(cameraPosition);
   yLabel.lookAt(cameraPosition);
   zLabel.lookAt(cameraPosition);
