@@ -93,6 +93,8 @@ arrowGroup.rotation.x = THREE.MathUtils.degToRad(160);
 arrowGroup.rotation.z = THREE.MathUtils.degToRad(30);
 scene.add(arrowGroup);
 
+
+//axis labels
 const createAxisLabel = (text, position) => {
   const spriteMaterial = new THREE.SpriteMaterial({
     map: createTextTexture(text),
@@ -114,6 +116,7 @@ axesGroup.add(xLabel);
 axesGroup.add(yLabel);
 axesGroup.add(zLabel);
 
+//planes
 const eplaneGeometry = new THREE.PlaneGeometry(7, 7);
 const eplaneMaterial = new THREE.MeshBasicMaterial({
   color: 0x4287f5,
@@ -199,6 +202,32 @@ const raanMaterial = new THREE.LineBasicMaterial({
 const raanArc = new THREE.Line(raanGeometry, raanMaterial);
 scene.add(raanArc);
 
+const inclinationArcPoints = [];
+const inclinationSegments = 32;
+const startPointInc = new THREE.Vector3(3.5, -2, 1);
+const endPointInc = new THREE.Vector3(3.5, -2, 3);
+const controlPointInc = new THREE.Vector3(
+  3.5,
+  1,
+  -0.35
+);
+
+for (let i = 0; i <= inclinationSegments; i++) {
+  const t = i / inclinationSegments;
+  const x = Math.pow(1 - t, 2) * startPointInc.x + 2 * (1 - t) * t * controlPointInc.x + Math.pow(t, 2) * endPointInc.x;
+  const y = Math.pow(1 - t, 2) * startPointInc.y + 2 * (1 - t) * t * controlPointInc.y + Math.pow(t, 2) * endPointInc.y;
+  const z = Math.pow(1 - t, 2) * startPointInc.z + 2 * (1 - t) * t * controlPointInc.z + Math.pow(t, 2) * endPointInc.z;
+  inclinationArcPoints.push(new THREE.Vector3(x, y, z));
+}
+
+const inclinationGeometry = new THREE.BufferGeometry().setFromPoints(inclinationArcPoints);
+const inclinationMaterial = new THREE.LineBasicMaterial({
+  color: 0x800080,
+  linewidth: 3
+});
+const inclinationArc = new THREE.Line(inclinationGeometry, inclinationMaterial);
+scene.add(inclinationArc);
+
 const nodeGeometry = new THREE.SphereGeometry(0.1, 16, 16);
 const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
 const perigeeMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
@@ -265,6 +294,8 @@ const raanLabelPos = new THREE.Vector3(
   (axisLength - 0.3) / 3
 );
 
+const inclinationText = createLabelSprite('Inclination', new THREE.Vector3(3, -2, 2));
+
 const perigeeText = createLabelSprite('Perigee', new THREE.Vector3(2.6, 2.6, -0.5));
 const argPerigeeText = createLabelSprite('Argument of Perigee', new THREE.Vector3(5.3, 2.5, -0.5));
 const raanText = createLabelSprite('RAAN', raanLabelPos);
@@ -272,6 +303,7 @@ const raanText = createLabelSprite('RAAN', raanLabelPos);
 const descendingText = createLabelSprite('Descending Node', new THREE.Vector3(-3.5, 0.5, 0));
 const ascendingText = createLabelSprite('Ascending Node', new THREE.Vector3(4.5, 0.5, 0));
 const lineOfNodesText = createLabelSprite('Line of Nodes', new THREE.Vector3(0, -0.5, 0));
+scene.add(inclinationText);
 scene.add(perigeeText);
 scene.add(argPerigeeText);
 scene.add(raanText);
@@ -309,6 +341,7 @@ function animate() {
   xLabel.lookAt(cameraPosition);
   yLabel.lookAt(cameraPosition);
   zLabel.lookAt(cameraPosition);
+  inclinationText.lookAt(cameraPosition);
 
   controls.update();
   renderer.render(scene, camera);
