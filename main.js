@@ -154,7 +154,7 @@ const lineOfNodes = new THREE.Line(lineofNodesGeometry, lineOfNodesMaterial);
 scene.add(lineOfNodes);
 
 const startPoint = new THREE.Vector3(3.5, 0, 0);
-const endPoint = new THREE.Vector3(0, 0, axisLength - 0.3);
+const endPoint = new THREE.Vector3(0, -1.6, axisLength - 0.3);
 const controlPoint = new THREE.Vector3(
   startPoint.x / 1.5,
   -2, //height
