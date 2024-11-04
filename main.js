@@ -29,6 +29,9 @@ const earth = new THREE.Mesh(earthGeo, earthMaterial);
 earth.rotation.x = THREE.MathUtils.degToRad(23.5);
 scene.add(earth);
 
+const arrowGroup = new THREE.Group();
+
+
 const axesGroup = new THREE.Group();
 axesGroup.rotation.x = THREE.MathUtils.degToRad(23.5);
 scene.add(axesGroup);
@@ -72,6 +75,23 @@ const xArrow = new THREE.Mesh(xArrowGeometry, xAxisMaterial);
 xArrow.rotation.x = THREE.MathUtils.degToRad(90);
 xArrow.position.z = axisLength;
 axesGroup.add(xArrow);
+
+
+//pointer arrow
+const arrowLineGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.8, 8);
+const arrowMaterial = new THREE.MeshBasicMaterial({ color: 0xFFA500 });
+const arrowPointGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+const arrowPoint = new THREE.Mesh(arrowPointGeometry, arrowMaterial);
+const arrowLine = new THREE.Mesh(arrowLineGeometry, arrowMaterial);
+arrowPoint.position.y = 1;
+arrowGroup.add(arrowPoint);
+arrowGroup.add(arrowLine);
+arrowGroup.position.x = 3.8;
+arrowGroup.position.y = 2.5;
+arrowGroup.position.z = -1;
+arrowGroup.rotation.x = THREE.MathUtils.degToRad(160);
+arrowGroup.rotation.z = THREE.MathUtils.degToRad(30);
+scene.add(arrowGroup);
 
 const createAxisLabel = (text, position) => {
   const spriteMaterial = new THREE.SpriteMaterial({
@@ -246,12 +266,14 @@ const raanLabelPos = new THREE.Vector3(
 );
 
 const perigeeText = createLabelSprite('Perigee', new THREE.Vector3(2.6, 2.6, -0.5));
+const argPerigeeText = createLabelSprite('Argument of Perigee', new THREE.Vector3(5.3, 2.5, -0.5));
 const raanText = createLabelSprite('RAAN', raanLabelPos);
 
 const descendingText = createLabelSprite('Descending Node', new THREE.Vector3(-3.5, 0.5, 0));
 const ascendingText = createLabelSprite('Ascending Node', new THREE.Vector3(4.5, 0.5, 0));
 const lineOfNodesText = createLabelSprite('Line of Nodes', new THREE.Vector3(0, -0.5, 0));
 scene.add(perigeeText);
+scene.add(argPerigeeText);
 scene.add(raanText);
 scene.add(descendingText);
 scene.add(ascendingText);
@@ -283,6 +305,7 @@ function animate() {
   lineOfNodesText.lookAt(cameraPosition);
   raanText.lookAt(cameraPosition);
   perigeeText.lookAt(cameraPosition);
+  argPerigeeText.lookAt(cameraPosition);
   xLabel.lookAt(cameraPosition);
   yLabel.lookAt(cameraPosition);
   zLabel.lookAt(cameraPosition);
