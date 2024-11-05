@@ -177,7 +177,7 @@ const lineOfNodes = new THREE.Line(lineofNodesGeometry, lineOfNodesMaterial);
 scene.add(lineOfNodes);
 
 const startPoint = new THREE.Vector3(3.5, 0, 0);
-const endPoint = new THREE.Vector3(0, -1.6, axisLength - 0.3);
+const endPoint = new THREE.Vector3(-0.25, -1.6, axisLength - 0.3);
 const controlPoint = new THREE.Vector3(
   startPoint.x / 1.5,
   -3, //height
@@ -213,7 +213,7 @@ const equatorialPoint = new THREE.Vector3(
 
 const orbitalPoint = new THREE.Vector3(
   3.5 * Math.cos(THREE.MathUtils.degToRad(45)),
-  4.5 * Math.sin(THREE.MathUtils.degToRad(45)) * Math.cos(THREE.MathUtils.degToRad(160)),
+  4.8 * Math.sin(THREE.MathUtils.degToRad(45)) * Math.cos(THREE.MathUtils.degToRad(160)),
   3.5 * Math.sin(THREE.MathUtils.degToRad(160))
 );
 
