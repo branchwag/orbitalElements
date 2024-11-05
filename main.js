@@ -204,12 +204,25 @@ scene.add(raanArc);
 
 const inclinationArcPoints = [];
 const inclinationSegments = 32;
-const startPointInc = new THREE.Vector3(3.5, -2, 1);
-const endPointInc = new THREE.Vector3(3.5, -2, 3);
-const controlPointInc = new THREE.Vector3(
+
+const equatorialPoint = new THREE.Vector3(
   3.5,
-  1,
-  -0.35
+  3.5 * Math.cos(THREE.MathUtils.degToRad(115)),
+  3.5 * Math.sin(THREE.MathUtils.degToRad(115))
+);
+
+const orbitalPoint = new THREE.Vector3(
+  3.5 * Math.cos(THREE.MathUtils.degToRad(45)),
+  4.5 * Math.sin(THREE.MathUtils.degToRad(45)) * Math.cos(THREE.MathUtils.degToRad(160)),
+  3.5 * Math.sin(THREE.MathUtils.degToRad(160))
+);
+
+const startPointInc = equatorialPoint;
+const endPointInc = orbitalPoint;
+const controlPointInc = new THREE.Vector3(
+  4.5,
+  (startPointInc.y + endPointInc.y) / 2,
+  (startPointInc.z + endPointInc.z) / 2
 );
 
 for (let i = 0; i <= inclinationSegments; i++) {
