@@ -2,5 +2,7 @@
 
 Modeling the orbital elements using Three.js  
 
-NASA Orbital Elements video:  
+[!Demo](./demo.gif)  
+
+Inspired by this NASA Orbital Elements video:  
 https://youtu.be/Am7EwmxBAW8
