@@ -1,6 +1,7 @@
 import './style.css'
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { temp } from 'three/webgpu';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -211,10 +212,26 @@ const equatorialPoint = new THREE.Vector3(
   3.5 * Math.sin(THREE.MathUtils.degToRad(115))
 );
 
-const orbitalPoint = new THREE.Vector3(
+// const orbitalPoint = new THREE.Vector3(
+//   3.5 * Math.cos(THREE.MathUtils.degToRad(45)),
+//   4.8 * Math.sin(THREE.MathUtils.degToRad(45)) * Math.cos(THREE.MathUtils.degToRad(160)),
+//   3.5 * Math.sin(THREE.MathUtils.degToRad(160))
+// );
+
+//pt in xy plane at 45 degrees to match orbitalPlane.rotation.z
+const tempOrbitalPoint = new THREE.Vector3(
   3.5 * Math.cos(THREE.MathUtils.degToRad(45)),
-  4.8 * Math.sin(THREE.MathUtils.degToRad(45)) * Math.cos(THREE.MathUtils.degToRad(160)),
-  3.5 * Math.sin(THREE.MathUtils.degToRad(160))
+  3.5 * Math.sin(THREE.MathUtils.degToRad(45)),
+  0
+);
+
+//x rotation of 160deg
+const cosX = Math.cos(THREE.MathUtils.degToRad(160));
+const sinX = Math.sin(THREE.MathUtils.degToRad(160));
+const orbitalPoint = new THREE.Vector3(
+  tempOrbitalPoint.x,
+  tempOrbitalPoint.y * cosX - tempOrbitalPoint.z * sinX,
+  tempOrbitalPoint.y * sinX + tempOrbitalPoint.z * cosX
 );
 
 const startPointInc = equatorialPoint;
