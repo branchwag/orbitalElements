@@ -54,28 +54,16 @@ pub fn main() {
             ..Default::default()
         },
     );
-    depth_sphere.set_transformation(Mat4::from_scale(earth_radius));
+    depth_sphere.set_transformation(Mat4::from_scale(earth_radius * 0.97));
 
     // --- Earth wireframe (lat/lon lines) ---
-    // Matches three.js SphereGeometry(2, 32, 32) — 32 meridians, 32 parallels,
-    // each subdivided 32 times so the curves look smooth from any angle.
-    let wire_polylines = sphere_wireframe_polylines(earth_radius, 32, 32);
-    let wire_transforms = polylines_to_tube_segments(&wire_polylines, 0.012);
+    // Smooth parametric torus rings (lat) + arc tubes (lon) baked into one mesh.
+    // No segment junctions means no "hair" artifacts at grid intersections.
+    let wireframe_cpu = build_sphere_wireframe_mesh(earth_radius, 0.012, 32, 32, 32, 8, 32);
     let mut earth_wireframe = Gm::new(
-        InstancedMesh::new(
-            &context,
-            &Instances {
-                transformations: wire_transforms,
-                ..Default::default()
-            },
-            &CpuMesh::cylinder(16),
-        ),
+        Mesh::new(&context, &wireframe_cpu),
         ColorMaterial {
             color: Srgba::new(0, 255, 65, 255),
-            // Don't write depth — every lat/lon tube crosses every other tube,
-            // and depth-fighting between them is what causes the shimmery /
-            // fuzzy look as the camera rotates. They still test against the
-            // scene depth, so opaque geometry in front still occludes them.
             render_states: RenderStates {
                 write_mask: WriteMask::COLOR,
                 depth_test: DepthTest::Less,
@@ -386,6 +374,101 @@ pub fn main() {
 // Geometry helpers
 // ---------------------------------------------------------------------
 
+/// Builds a single merged mesh for the sphere wireframe: smooth torus rings for
+/// latitude parallels and smooth arc tubes for longitude meridians. No segment
+/// junctions means no "hair" artifacts at grid intersections.
+fn build_sphere_wireframe_mesh(
+    earth_radius: f32,
+    tube_radius: f32,
+    lat_count: u32,
+    lon_count: u32,
+    lat_segs: u32,
+    tube_segs: u32,
+    mer_segs: u32,
+) -> CpuMesh {
+    let mut positions: Vec<Vec3> = Vec::new();
+    let mut normals: Vec<Vec3> = Vec::new();
+    let mut indices: Vec<u32> = Vec::new();
+    let vs = tube_segs;
+
+    // Latitude parallels — torus rings
+    // phi goes from 0 (north pole) to PI (south pole); skip the poles (i=0, lat_count).
+    for i in 1..lat_count {
+        let phi = (i as f32 / lat_count as f32) * PI;
+        let ring_y = earth_radius * phi.cos();
+        let ring_r = earth_radius * phi.sin();
+        let us = lat_segs;
+        let base = positions.len() as u32;
+
+        for ui in 0..=us {
+            let u = (ui as f32 / us as f32) * TAU;
+            let (su, cu) = u.sin_cos();
+            for vi in 0..=vs {
+                let v = (vi as f32 / vs as f32) * TAU;
+                let (sv, cv) = v.sin_cos();
+                let r = ring_r + tube_radius * cv;
+                positions.push(vec3(r * cu, ring_y + tube_radius * sv, r * su));
+                normals.push(vec3(cv * cu, sv, cv * su));
+            }
+        }
+
+        for ui in 0..us {
+            for vi in 0..vs {
+                let a = base + ui * (vs + 1) + vi;
+                let b = base + (ui + 1) * (vs + 1) + vi;
+                let c = base + ui * (vs + 1) + vi + 1;
+                let d = base + (ui + 1) * (vs + 1) + vi + 1;
+                // (a,d,b) and (a,c,d) give CCW outward-facing normals for a torus.
+                indices.extend_from_slice(&[a, d, b, a, c, d]);
+            }
+        }
+    }
+
+    // Longitude meridians — arc tubes from north pole to south pole.
+    // B = (sin θ, 0, −cos θ) is constant per meridian (parallel-transport frame).
+    for j in 0..lon_count {
+        let theta = (j as f32 / lon_count as f32) * TAU;
+        let (st, ct) = theta.sin_cos();
+        let b_vec = vec3(st, 0.0, -ct);
+        let ps = mer_segs;
+        let base = positions.len() as u32;
+
+        for pi_idx in 0..=ps {
+            let phi = (pi_idx as f32 / ps as f32) * PI;
+            let (sp, cp) = phi.sin_cos();
+            let r_hat = vec3(sp * ct, cp, sp * st);
+
+            for vi in 0..=vs {
+                let v = (vi as f32 / vs as f32) * TAU;
+                let (sv, cv) = v.sin_cos();
+                let pos =
+                    r_hat * (earth_radius + tube_radius * cv) + b_vec * (tube_radius * sv);
+                let nrm = r_hat * cv + b_vec * sv;
+                positions.push(pos);
+                normals.push(nrm);
+            }
+        }
+
+        for pi_idx in 0..ps {
+            for vi in 0..vs {
+                let a = base + pi_idx * (vs + 1) + vi;
+                let b = base + (pi_idx + 1) * (vs + 1) + vi;
+                let c = base + pi_idx * (vs + 1) + vi + 1;
+                let d = base + (pi_idx + 1) * (vs + 1) + vi + 1;
+                // (a,b,c) and (b,d,c) give CCW outward-facing normals for the arc tube.
+                indices.extend_from_slice(&[a, b, c, b, d, c]);
+            }
+        }
+    }
+
+    CpuMesh {
+        positions: Positions::F32(positions),
+        normals: Some(normals),
+        indices: Indices::U32(indices),
+        ..Default::default()
+    }
+}
+
 fn rotation_x_to_dir(dir: Vec3) -> Mat4 {
     let from = vec3(1.0, 0.0, 0.0);
     let dot = from.dot(dir);
@@ -415,22 +498,15 @@ fn tube_segment_transform(start: Vec3, end: Vec3, radius: f32) -> Option<Mat4> {
     if length < 1e-6 {
         return None;
     }
-    let rot = rotation_x_to_dir(dir / length);
+    let unit = dir / length;
+    let rot = rotation_x_to_dir(unit);
+    // Extend one radius on each end so end caps are buried inside adjacent segments,
+    // hiding the junction artifacts.
     Some(
-        Mat4::from_translation(start) * rot * Mat4::from_nonuniform_scale(length, radius, radius),
+        Mat4::from_translation(start - unit * radius)
+            * rot
+            * Mat4::from_nonuniform_scale(length + 2.0 * radius, radius, radius),
     )
-}
-
-fn polylines_to_tube_segments(polylines: &[Vec<Vec3>], radius: f32) -> Vec<Mat4> {
-    let mut transforms = Vec::new();
-    for line in polylines {
-        for w in line.windows(2) {
-            if let Some(t) = tube_segment_transform(w[0], w[1], radius) {
-                transforms.push(t);
-            }
-        }
-    }
-    transforms
 }
 
 fn make_tube_strip(
@@ -506,44 +582,6 @@ fn make_dashed_circle(
             ..Default::default()
         },
     )
-}
-
-/// Generates wireframe-sphere polylines: a set of latitude parallels and
-/// longitude meridians at the given radius.
-fn sphere_wireframe_polylines(radius: f32, lat_count: u32, lon_count: u32) -> Vec<Vec<Vec3>> {
-    let mut polylines: Vec<Vec<Vec3>> = Vec::new();
-    let segs_per_parallel: u32 = 32;
-    let segs_per_meridian: u32 = 32;
-
-    // Latitude parallels (skip the poles where r == 0)
-    for i in 1..lat_count {
-        let phi = (i as f32 / lat_count as f32) * PI;
-        let y = radius * phi.cos();
-        let r = radius * phi.sin();
-        let mut line: Vec<Vec3> = Vec::with_capacity((segs_per_parallel + 1) as usize);
-        for j in 0..=segs_per_parallel {
-            let theta = (j as f32 / segs_per_parallel as f32) * TAU;
-            line.push(vec3(r * theta.cos(), y, r * theta.sin()));
-        }
-        polylines.push(line);
-    }
-
-    // Longitude meridians (pole to pole)
-    for i in 0..lon_count {
-        let theta = (i as f32 / lon_count as f32) * TAU;
-        let mut line: Vec<Vec3> = Vec::with_capacity((segs_per_meridian + 1) as usize);
-        for j in 0..=segs_per_meridian {
-            let phi = (j as f32 / segs_per_meridian as f32) * PI;
-            line.push(vec3(
-                radius * phi.sin() * theta.cos(),
-                radius * phi.cos(),
-                radius * phi.sin() * theta.sin(),
-            ));
-        }
-        polylines.push(line);
-    }
-
-    polylines
 }
 
 // ---------------------------------------------------------------------
