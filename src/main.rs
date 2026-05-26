@@ -40,6 +40,22 @@ pub fn main() {
     let earth_radius: f32 = 2.0;
     let earth_tilt = Mat4::from_angle_x(degrees(23.5));
 
+    // --- Depth-prepass sphere: invisible, writes only depth so back-hemisphere
+    // wireframe tubes fail the depth test and don't show through the front ---
+    let mut depth_sphere = Gm::new(
+        Mesh::new(&context, &CpuMesh::sphere(32)),
+        ColorMaterial {
+            render_states: RenderStates {
+                write_mask: WriteMask::DEPTH,
+                depth_test: DepthTest::Less,
+                cull: Cull::Back,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    );
+    depth_sphere.set_transformation(Mat4::from_scale(earth_radius));
+
     // --- Earth wireframe (lat/lon lines) ---
     // Matches three.js SphereGeometry(2, 32, 32) — 32 meridians, 32 parallels,
     // each subdivided 32 times so the curves look smooth from any angle.
@@ -279,6 +295,31 @@ pub fn main() {
         Mat4::from_translation(vec3(2.75, 2.0, -0.75)) * Mat4::from_scale(0.1),
     );
 
+    // --- Cache DOM label elements once to avoid per-frame getElementById calls ---
+    #[cfg(target_arch = "wasm32")]
+    let label_els = {
+        use wasm_bindgen::JsCast;
+        let doc = web_sys::window().and_then(|w| w.document());
+        let get = |id: &str| -> Option<web_sys::HtmlElement> {
+            doc.as_ref()?
+                .get_element_by_id(id)?
+                .dyn_into::<web_sys::HtmlElement>()
+                .ok()
+        };
+        [
+            get("lbl-z"),
+            get("lbl-y"),
+            get("lbl-x"),
+            get("lbl-inclination"),
+            get("lbl-perigee"),
+            get("lbl-arg-perigee"),
+            get("lbl-raan"),
+            get("lbl-desc-node"),
+            get("lbl-asc-node"),
+            get("lbl-nodes"),
+        ]
+    };
+
     // --- Render loop ---
     let mut earth_y_rot: f32 = 0.0;
     window.render_loop(move |mut frame_input| {
@@ -293,26 +334,29 @@ pub fn main() {
         {
             if let Some((w, h)) = get_css_size() {
                 let view_proj = camera.projection() * camera.view();
-                let update = |id: &str, pos: Vec3| {
-                    update_label(id, pos, view_proj, w, h);
+                let update = |el: &Option<web_sys::HtmlElement>, pos: Vec3| {
+                    if let Some(el) = el {
+                        update_label(el, pos, view_proj, w, h);
+                    }
                 };
-                update("lbl-z", mul_point(earth_tilt, vec3(0.0, axis_length + 0.5, 0.0)));
-                update("lbl-y", mul_point(earth_tilt, vec3(axis_length + 0.5, 0.0, 0.0)));
-                update("lbl-x", mul_point(earth_tilt, vec3(0.0, 0.0, axis_length + 0.5)));
-                update("lbl-inclination", vec3(3.0, -2.0, 2.0));
-                update("lbl-perigee", vec3(2.6, 2.6, -0.5));
-                update("lbl-arg-perigee", arg_perigee_label_pos);
+                update(&label_els[0], mul_point(earth_tilt, vec3(0.0, axis_length + 0.5, 0.0)));
+                update(&label_els[1], mul_point(earth_tilt, vec3(axis_length + 0.5, 0.0, 0.0)));
+                update(&label_els[2], mul_point(earth_tilt, vec3(0.0, 0.0, axis_length + 0.5)));
+                update(&label_els[3], vec3(3.0, -2.0, 2.0));
+                update(&label_els[4], vec3(2.6, 2.6, -0.5));
+                update(&label_els[5], arg_perigee_label_pos);
                 update(
-                    "lbl-raan",
+                    &label_els[6],
                     vec3(raan_start.x / 2.0, -2.0, (axis_length - 0.3) / 3.0),
                 );
-                update("lbl-desc-node", vec3(-3.5, 0.5, 0.0));
-                update("lbl-asc-node", vec3(4.5, 0.5, 0.0));
-                update("lbl-nodes", vec3(0.0, -0.5, 0.0));
+                update(&label_els[7], vec3(-3.5, 0.5, 0.0));
+                update(&label_els[8], vec3(4.5, 0.5, 0.0));
+                update(&label_els[9], vec3(0.0, -0.5, 0.0));
             }
         }
 
         let mut objects: Vec<&dyn Object> = Vec::new();
+        objects.push(&depth_sphere);
         objects.push(&earth_wireframe);
         for a in &axis_meshes {
             objects.push(a);
@@ -515,19 +559,10 @@ fn get_css_size() -> Option<(f32, f32)> {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn update_label(id: &str, world: Vec3, view_proj: Mat4, width: f32, height: f32) {
-    use wasm_bindgen::JsCast;
+fn update_label(el: &web_sys::HtmlElement, world: Vec3, view_proj: Mat4, width: f32, height: f32) {
     let clip = view_proj * world.extend(1.0);
-    let html = match web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.get_element_by_id(id))
-        .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
-    {
-        Some(el) => el,
-        None => return,
-    };
     if clip.w <= 0.0 {
-        let _ = html
+        let _ = el
             .style()
             .set_property("transform", "translate(-9999px, -9999px)");
         return;
@@ -536,7 +571,7 @@ fn update_label(id: &str, world: Vec3, view_proj: Mat4, width: f32, height: f32)
     let ny = clip.y / clip.w;
     let sx = (nx + 1.0) * 0.5 * width;
     let sy = (1.0 - ny) * 0.5 * height;
-    let _ = html.style().set_property(
+    let _ = el.style().set_property(
         "transform",
         &format!("translate({:.1}px, {:.1}px) translate(-50%, -50%)", sx, sy),
     );
