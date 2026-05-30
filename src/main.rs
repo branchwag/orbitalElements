@@ -40,22 +40,6 @@ pub fn main() {
     let earth_radius: f32 = 2.0;
     let earth_tilt = Mat4::from_angle_x(degrees(23.5));
 
-    // --- Depth-prepass sphere: invisible, writes only depth so back-hemisphere
-    // wireframe tubes fail the depth test and don't show through the front ---
-    let mut depth_sphere = Gm::new(
-        Mesh::new(&context, &CpuMesh::sphere(32)),
-        ColorMaterial {
-            render_states: RenderStates {
-                write_mask: WriteMask::DEPTH,
-                depth_test: DepthTest::Less,
-                cull: Cull::Back,
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-    );
-    depth_sphere.set_transformation(Mat4::from_scale(earth_radius * 0.97));
-
     // --- Earth wireframe (lat/lon lines) ---
     // Smooth parametric torus rings (lat) + arc tubes (lon) baked into one mesh.
     // No segment junctions means no "hair" artifacts at grid intersections.
@@ -68,7 +52,7 @@ pub fn main() {
                 write_mask: WriteMask::COLOR,
                 depth_test: DepthTest::Less,
                 blend: Blend::Disabled,
-                cull: Cull::Back,
+                cull: Cull::None,
             },
             ..Default::default()
         },
@@ -344,7 +328,6 @@ pub fn main() {
         }
 
         let mut objects: Vec<&dyn Object> = Vec::new();
-        objects.push(&depth_sphere);
         objects.push(&earth_wireframe);
         for a in &axis_meshes {
             objects.push(a);
