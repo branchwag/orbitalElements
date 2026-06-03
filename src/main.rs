@@ -21,7 +21,7 @@ pub fn main() {
         canvas: get_canvas(),
         ..Default::default()
     })
-    .unwrap();
+    .expect("failed to create window");
 
     let context = window.gl();
 
@@ -293,13 +293,13 @@ pub fn main() {
     };
 
     // --- Render loop ---
-    let mut earth_y_rot: f32 = 0.0;
+    let mut earth_y_rotation: f32 = 0.0;
     window.render_loop(move |mut frame_input| {
         camera.set_viewport(frame_input.viewport);
         control.handle_events(&mut camera, &mut frame_input.events);
 
-        earth_y_rot += (frame_input.elapsed_time as f32) * 6.0e-5;
-        let earth_transform = earth_tilt * Mat4::from_angle_y(Rad(earth_y_rot));
+        earth_y_rotation += (frame_input.elapsed_time as f32) * 6.0e-5;
+        let earth_transform = earth_tilt * Mat4::from_angle_y(Rad(earth_y_rotation));
         earth_wireframe.set_transformation(earth_transform);
 
         #[cfg(target_arch = "wasm32")]
