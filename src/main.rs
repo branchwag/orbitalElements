@@ -267,30 +267,31 @@ pub fn main() {
         Mat4::from_translation(vec3(2.75, 2.0, -0.75)) * Mat4::from_scale(0.1),
     );
 
-    // --- Cache DOM label elements once to avoid per-frame getElementById calls ---
+    // --- Cache the JS batch-update function (one boundary crossing per frame instead of 20+) ---
     #[cfg(target_arch = "wasm32")]
-    let label_els = {
+    let update_labels_fn: js_sys::Function = {
         use wasm_bindgen::JsCast;
-        let doc = web_sys::window().and_then(|w| w.document());
-        let get = |id: &str| -> Option<web_sys::HtmlElement> {
-            doc.as_ref()?
-                .get_element_by_id(id)?
-                .dyn_into::<web_sys::HtmlElement>()
-                .ok()
-        };
-        [
-            get("lbl-z"),
-            get("lbl-y"),
-            get("lbl-x"),
-            get("lbl-inclination"),
-            get("lbl-perigee"),
-            get("lbl-arg-perigee"),
-            get("lbl-raan"),
-            get("lbl-desc-node"),
-            get("lbl-asc-node"),
-            get("lbl-nodes"),
-        ]
+        let win = web_sys::window().expect("no window");
+        js_sys::Reflect::get(&win, &wasm_bindgen::JsValue::from_str("__updateLabels"))
+            .expect("__updateLabels not on window")
+            .dyn_into::<js_sys::Function>()
+            .expect("__updateLabels is not a function")
     };
+
+    // All label world positions are fixed (none move with Earth rotation), so precompute once.
+    #[cfg(target_arch = "wasm32")]
+    let label_world_positions: [Vec3; 10] = [
+        mul_point(earth_tilt, vec3(0.0, axis_length + 0.5, 0.0)),  // lbl-z
+        mul_point(earth_tilt, vec3(axis_length + 0.5, 0.0, 0.0)),  // lbl-y
+        mul_point(earth_tilt, vec3(0.0, 0.0, axis_length + 0.5)),  // lbl-x
+        vec3(3.0, -2.0, 2.0),                                       // lbl-inclination
+        vec3(2.6, 2.6, -0.5),                                       // lbl-perigee
+        arg_perigee_label_pos,                                       // lbl-arg-perigee
+        vec3(raan_start.x / 2.0, -2.0, (axis_length - 0.3) / 3.0), // lbl-raan
+        vec3(-3.5, 0.5, 0.0),                                       // lbl-desc-node
+        vec3(4.5, 0.5, 0.0),                                        // lbl-asc-node
+        vec3(0.0, -0.5, 0.0),                                       // lbl-nodes
+    ];
 
     // --- Render loop ---
     let mut earth_y_rotation: f32 = 0.0;
@@ -306,24 +307,14 @@ pub fn main() {
         {
             if let Some((w, h)) = get_css_size() {
                 let view_proj = camera.projection() * camera.view();
-                let update = |el: &Option<web_sys::HtmlElement>, pos: Vec3| {
-                    if let Some(el) = el {
-                        update_label(el, pos, view_proj, w, h);
-                    }
-                };
-                update(&label_els[0], mul_point(earth_tilt, vec3(0.0, axis_length + 0.5, 0.0)));
-                update(&label_els[1], mul_point(earth_tilt, vec3(axis_length + 0.5, 0.0, 0.0)));
-                update(&label_els[2], mul_point(earth_tilt, vec3(0.0, 0.0, axis_length + 0.5)));
-                update(&label_els[3], vec3(3.0, -2.0, 2.0));
-                update(&label_els[4], vec3(2.6, 2.6, -0.5));
-                update(&label_els[5], arg_perigee_label_pos);
-                update(
-                    &label_els[6],
-                    vec3(raan_start.x / 2.0, -2.0, (axis_length - 0.3) / 3.0),
-                );
-                update(&label_els[7], vec3(-3.5, 0.5, 0.0));
-                update(&label_els[8], vec3(4.5, 0.5, 0.0));
-                update(&label_els[9], vec3(0.0, -0.5, 0.0));
+                let mut coords = [0f32; 20];
+                for (i, &world) in label_world_positions.iter().enumerate() {
+                    let (x, y) = project_to_screen(world, view_proj, w, h);
+                    coords[i * 2] = x;
+                    coords[i * 2 + 1] = y;
+                }
+                let arr = unsafe { js_sys::Float32Array::view(&coords) };
+                let _ = update_labels_fn.call1(&wasm_bindgen::JsValue::NULL, &arr);
             }
         }
 
@@ -631,20 +622,12 @@ fn get_css_size() -> Option<(f32, f32)> {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn update_label(el: &web_sys::HtmlElement, world: Vec3, view_proj: Mat4, width: f32, height: f32) {
+fn project_to_screen(world: Vec3, view_proj: Mat4, width: f32, height: f32) -> (f32, f32) {
     let clip = view_proj * world.extend(1.0);
     if clip.w <= 0.0 {
-        let _ = el
-            .style()
-            .set_property("transform", "translate(-9999px, -9999px)");
-        return;
+        return (-9999.0, -9999.0);
     }
-    let nx = clip.x / clip.w;
-    let ny = clip.y / clip.w;
-    let sx = (nx + 1.0) * 0.5 * width;
-    let sy = (1.0 - ny) * 0.5 * height;
-    let _ = el.style().set_property(
-        "transform",
-        &format!("translate({:.1}px, {:.1}px) translate(-50%, -50%)", sx, sy),
-    );
+    let sx = (clip.x / clip.w + 1.0) * 0.5 * width;
+    let sy = (1.0 - clip.y / clip.w) * 0.5 * height;
+    (sx, sy)
 }

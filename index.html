@@ -48,5 +48,26 @@
     <div class="label" id="lbl-desc-node">Descending Node</div>
     <div class="label" id="lbl-asc-node">Ascending Node</div>
     <div class="label" id="lbl-nodes">Line of Nodes</div>
+  <script>
+    (function () {
+      var _els = null;
+      var _ids = ['lbl-z','lbl-y','lbl-x','lbl-inclination','lbl-perigee',
+                  'lbl-arg-perigee','lbl-raan','lbl-desc-node','lbl-asc-node','lbl-nodes'];
+      window.__updateLabels = function (coords) {
+        if (!_els) {
+          _els = _ids.map(function (id) { return document.getElementById(id); });
+        }
+        for (var i = 0, n = _els.length; i < n; i++) {
+          var el = _els[i];
+          if (!el) continue;
+          var x = coords[i * 2];
+          var y = coords[i * 2 + 1];
+          el.style.transform = x < -100
+            ? 'translate(-9999px,-9999px)'
+            : 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) translate(-50%,-50%)';
+        }
+      };
+    }());
+  </script>
   </body>
 </html>
