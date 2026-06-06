@@ -295,9 +295,51 @@ pub fn main() {
 
     // --- Render loop ---
     let mut earth_y_rotation: f32 = 0.0;
+    let mut drag_velocity: (f32, f32) = (0.0, 0.0);
+    let mut is_dragging = false;
+
     window.render_loop(move |mut frame_input| {
         camera.set_viewport(frame_input.viewport);
+
+        // Pre-scan events to track drag state and capture velocity for inertia.
+        // OrbitControl marks MouseMotion as handled but not press/release, so
+        // we read them here before handle_events consumes them.
+        for event in frame_input.events.iter() {
+            match event {
+                Event::MousePress { button: MouseButton::Left, .. } => {
+                    is_dragging = true;
+                    drag_velocity = (0.0, 0.0);
+                }
+                Event::MouseRelease { button: MouseButton::Left, .. } => {
+                    is_dragging = false;
+                }
+                Event::MouseMotion {
+                    button: Some(MouseButton::Left),
+                    delta,
+                    handled,
+                    ..
+                } if !*handled => {
+                    drag_velocity = *delta;
+                }
+                _ => {}
+            }
+        }
+
         control.handle_events(&mut camera, &mut frame_input.events);
+
+        // Inertia: decay rate of 3.0/s matches Three.js dampingFactor=0.05 at 60fps.
+        if !is_dragging {
+            let decay = (-3.0 * frame_input.elapsed_time as f32 / 1000.0).exp();
+            drag_velocity.0 *= decay;
+            drag_velocity.1 *= decay;
+            if drag_velocity.0.abs() > 0.01 || drag_velocity.1.abs() > 0.01 {
+                camera.rotate_around_with_fixed_up(
+                    control.target,
+                    0.01 * drag_velocity.0,
+                    0.01 * drag_velocity.1,
+                );
+            }
+        }
 
         earth_y_rotation += (frame_input.elapsed_time as f32) * 6.0e-5;
         let earth_transform = earth_tilt * Mat4::from_angle_y(Rad(earth_y_rotation));
