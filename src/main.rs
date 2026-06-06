@@ -1,5 +1,6 @@
 use std::f32::consts::{PI, TAU};
 use three_d::*;
+use three_d::context::HasContext;
 
 #[cfg(target_arch = "wasm32")]
 fn get_canvas() -> Option<web_sys::HtmlCanvasElement> {
@@ -41,11 +42,10 @@ pub fn main() {
     let earth_tilt = Mat4::from_angle_x(degrees(23.5));
 
     // --- Earth wireframe (lat/lon lines) ---
-    // Smooth parametric torus rings (lat) + arc tubes (lon) baked into one mesh.
-    // No segment junctions means no "hair" artifacts at grid intersections.
-    let wireframe_cpu = build_sphere_wireframe_mesh(earth_radius, 0.012, 32, 32, 32, 8, 32);
+    // GL_LINES geometry: each consecutive pair of vertices is one line segment.
+    // No tube meshes, no end cap artifacts, no depth prepass needed.
     let mut earth_wireframe = Gm::new(
-        Mesh::new(&context, &wireframe_cpu),
+        GlobeLines::new(&context, earth_radius, 32, 32, 64, 64),
         ColorMaterial {
             color: Srgba::new(0, 255, 65, 255),
             render_states: RenderStates {
@@ -67,7 +67,7 @@ pub fn main() {
 
     let mut axis_meshes: Vec<Gm<Mesh, ColorMaterial>> = Vec::new();
     let mut push_axis = |dir: Vec3, color: Srgba| {
-        let rot = rotation_x_to_dir(dir);
+        let rotation = rotation_x_to_dir(dir);
         let mut cyl = Gm::new(
             Mesh::new(&context, &CpuMesh::cylinder(8)),
             ColorMaterial {
@@ -76,7 +76,7 @@ pub fn main() {
             },
         );
         cyl.set_transformation(
-            earth_tilt * rot * Mat4::from_nonuniform_scale(axis_length, 0.03, 0.03),
+            earth_tilt * rotation * Mat4::from_nonuniform_scale(axis_length, 0.03, 0.03),
         );
 
         let mut cone = Gm::new(
@@ -88,7 +88,7 @@ pub fn main() {
         );
         cone.set_transformation(
             earth_tilt
-                * rot
+                * rotation
                 * Mat4::from_translation(vec3(axis_length - 0.15, 0.0, 0.0))
                 * Mat4::from_nonuniform_scale(0.3, 0.1, 0.1),
         );
@@ -354,103 +354,154 @@ pub fn main() {
 }
 
 // ---------------------------------------------------------------------
-// Geometry helpers
+// Globe wireframe: GL_LINES geometry
 // ---------------------------------------------------------------------
 
-/// Builds a single merged mesh for the sphere wireframe: smooth torus rings for
-/// latitude parallels and smooth arc tubes for longitude meridians. No segment
-/// junctions means no "hair" artifacts at grid intersections.
-fn build_sphere_wireframe_mesh(
+/// Lat/lon grid drawn with GL_LINES primitives. Each pair of consecutive
+/// vertices in the buffer is one line segment (GL_LINES topology).
+struct GlobeLines {
+    positions: VertexBuffer<Vec3>,
+    vertex_count: u32,
+    context: Context,
+    transformation: Mat4,
+    aabb: AxisAlignedBoundingBox,
+}
+
+impl GlobeLines {
+    fn new(
+        context: &Context,
+        earth_radius: f32,
+        lat_count: u32,
+        lon_count: u32,
+        lat_segs: u32,
+        mer_segs: u32,
+    ) -> Self {
+        let pts = build_globe_line_vertices(earth_radius, lat_count, lon_count, lat_segs, mer_segs);
+        let aabb = AxisAlignedBoundingBox::new_with_positions(&pts);
+        let vertex_count = pts.len() as u32;
+        Self {
+            positions: VertexBuffer::new_with_data(context, &pts),
+            vertex_count,
+            context: context.clone(),
+            transformation: Mat4::identity(),
+            aabb,
+        }
+    }
+
+    fn set_transformation(&mut self, t: Mat4) {
+        self.transformation = t;
+    }
+}
+
+impl Geometry for GlobeLines {
+    fn draw(&self, viewer: &dyn Viewer, program: &Program, render_states: RenderStates) {
+        program.use_uniform("viewProjection", viewer.projection() * viewer.view());
+        program.use_uniform("modelMatrix", self.transformation);
+        program.use_vertex_attribute("position", &self.positions);
+        let count = self.vertex_count;
+        let context = self.context.clone();
+        program.draw_with(render_states, viewer.viewport(), move || unsafe {
+            context.draw_arrays(three_d::context::LINES, 0, count as i32);
+        });
+    }
+
+    fn vertex_shader_source(&self) -> String {
+        "uniform mat4 viewProjection;
+uniform mat4 modelMatrix;
+in vec3 position;
+out vec3 pos;
+out vec4 col;
+flat out int instance_id;
+void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    pos = worldPos.xyz;
+    col = vec4(1.0);
+    instance_id = gl_InstanceID;
+    gl_Position = viewProjection * worldPos;
+}"
+        .to_string()
+    }
+
+    fn id(&self) -> GeometryId {
+        GeometryId(1)
+    }
+
+    fn render_with_material(
+        &self,
+        material: &dyn Material,
+        viewer: &dyn Viewer,
+        lights: &[&dyn Light],
+    ) {
+        if let Err(e) = render_with_material(&self.context, viewer, self, material, lights) {
+            panic!("{}", e);
+        }
+    }
+
+    fn render_with_effect(
+        &self,
+        material: &dyn Effect,
+        viewer: &dyn Viewer,
+        lights: &[&dyn Light],
+        color_texture: Option<ColorTexture>,
+        depth_texture: Option<DepthTexture>,
+    ) {
+        if let Err(e) =
+            render_with_effect(&self.context, viewer, self, material, lights, color_texture, depth_texture)
+        {
+            panic!("{}", e);
+        }
+    }
+
+    fn aabb(&self) -> AxisAlignedBoundingBox {
+        self.aabb.transformed(self.transformation)
+    }
+}
+
+/// Builds a flat Vec of vertex pairs for GL_LINES: each consecutive pair is one
+/// segment. Latitude parallels are circles at fixed latitude; meridians run
+/// pole-to-pole.
+fn build_globe_line_vertices(
     earth_radius: f32,
-    tube_radius: f32,
     lat_count: u32,
     lon_count: u32,
     lat_segs: u32,
-    tube_segs: u32,
     mer_segs: u32,
-) -> CpuMesh {
-    let mut positions: Vec<Vec3> = Vec::new();
-    let mut normals: Vec<Vec3> = Vec::new();
-    let mut indices: Vec<u32> = Vec::new();
-    let vs = tube_segs;
+) -> Vec<Vec3> {
+    let mut pts = Vec::new();
 
-    // Latitude parallels — torus rings
-    // phi goes from 0 (north pole) to PI (south pole); skip the poles (i=0, lat_count).
+    // Latitude parallels (skip the poles where radius collapses to zero)
     for i in 1..lat_count {
         let phi = (i as f32 / lat_count as f32) * PI;
-        let ring_y = earth_radius * phi.cos();
-        let ring_r = earth_radius * phi.sin();
-        let us = lat_segs;
-        let base = positions.len() as u32;
-
-        for ui in 0..=us {
-            let u = (ui as f32 / us as f32) * TAU;
-            let (su, cu) = u.sin_cos();
-            for vi in 0..=vs {
-                let v = (vi as f32 / vs as f32) * TAU;
-                let (sv, cv) = v.sin_cos();
-                let r = ring_r + tube_radius * cv;
-                positions.push(vec3(r * cu, ring_y + tube_radius * sv, r * su));
-                normals.push(vec3(cv * cu, sv, cv * su));
-            }
-        }
-
-        for ui in 0..us {
-            for vi in 0..vs {
-                let a = base + ui * (vs + 1) + vi;
-                let b = base + (ui + 1) * (vs + 1) + vi;
-                let c = base + ui * (vs + 1) + vi + 1;
-                let d = base + (ui + 1) * (vs + 1) + vi + 1;
-                // (a,d,b) and (a,c,d) give CCW outward-facing normals for a torus.
-                indices.extend_from_slice(&[a, d, b, a, c, d]);
-            }
+        let y = earth_radius * phi.cos();
+        let r = earth_radius * phi.sin();
+        for j in 0..lat_segs {
+            let u0 = (j as f32 / lat_segs as f32) * TAU;
+            let u1 = ((j + 1) as f32 / lat_segs as f32) * TAU;
+            pts.push(vec3(r * u0.cos(), y, r * u0.sin()));
+            pts.push(vec3(r * u1.cos(), y, r * u1.sin()));
         }
     }
 
-    // Longitude meridians — arc tubes from north pole to south pole.
-    // B = (sin θ, 0, −cos θ) is constant per meridian (parallel-transport frame).
+    // Longitude meridians (pole to pole)
     for j in 0..lon_count {
         let theta = (j as f32 / lon_count as f32) * TAU;
         let (st, ct) = theta.sin_cos();
-        let b_vec = vec3(st, 0.0, -ct);
-        let ps = mer_segs;
-        let base = positions.len() as u32;
-
-        for pi_idx in 0..=ps {
-            let phi = (pi_idx as f32 / ps as f32) * PI;
-            let (sp, cp) = phi.sin_cos();
-            let r_hat = vec3(sp * ct, cp, sp * st);
-
-            for vi in 0..=vs {
-                let v = (vi as f32 / vs as f32) * TAU;
-                let (sv, cv) = v.sin_cos();
-                let pos =
-                    r_hat * (earth_radius + tube_radius * cv) + b_vec * (tube_radius * sv);
-                let nrm = r_hat * cv + b_vec * sv;
-                positions.push(pos);
-                normals.push(nrm);
-            }
-        }
-
-        for pi_idx in 0..ps {
-            for vi in 0..vs {
-                let a = base + pi_idx * (vs + 1) + vi;
-                let b = base + (pi_idx + 1) * (vs + 1) + vi;
-                let c = base + pi_idx * (vs + 1) + vi + 1;
-                let d = base + (pi_idx + 1) * (vs + 1) + vi + 1;
-                // (a,b,c) and (b,d,c) give CCW outward-facing normals for the arc tube.
-                indices.extend_from_slice(&[a, b, c, b, d, c]);
-            }
+        for i in 0..mer_segs {
+            let phi0 = (i as f32 / mer_segs as f32) * PI;
+            let phi1 = ((i + 1) as f32 / mer_segs as f32) * PI;
+            let (sp0, cp0) = phi0.sin_cos();
+            let (sp1, cp1) = phi1.sin_cos();
+            pts.push(vec3(earth_radius * sp0 * ct, earth_radius * cp0, earth_radius * sp0 * st));
+            pts.push(vec3(earth_radius * sp1 * ct, earth_radius * cp1, earth_radius * sp1 * st));
         }
     }
 
-    CpuMesh {
-        positions: Positions::F32(positions),
-        normals: Some(normals),
-        indices: Indices::U32(indices),
-        ..Default::default()
-    }
+    pts
 }
+
+// ---------------------------------------------------------------------
+// Geometry helpers
+// ---------------------------------------------------------------------
 
 fn rotation_x_to_dir(dir: Vec3) -> Mat4 {
     let from = vec3(1.0, 0.0, 0.0);
@@ -482,12 +533,12 @@ fn tube_segment_transform(start: Vec3, end: Vec3, radius: f32) -> Option<Mat4> {
         return None;
     }
     let unit = dir / length;
-    let rot = rotation_x_to_dir(unit);
+    let rotation = rotation_x_to_dir(unit);
     // Extend one radius on each end so end caps are buried inside adjacent segments,
     // hiding the junction artifacts.
     Some(
         Mat4::from_translation(start - unit * radius)
-            * rot
+            * rotation
             * Mat4::from_nonuniform_scale(length + 2.0 * radius, radius, radius),
     )
 }
